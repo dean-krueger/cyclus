@@ -16,7 +16,7 @@ cyclus::toolkit::Position coordinates;
        "doc": "Latitude of the agent's geographical position. The value should " \
        "be expressed in degrees as a double." \
 }
-double latitude = 0.0;
+double latitude;
 
 #pragma cyclus var { \
        "default": 0.0, \
@@ -24,7 +24,7 @@ double latitude = 0.0;
        "doc": "Longitude of the agent's geographical position. The value should " \
               "be expressed in degrees as a double." \
 }
-double longitude = 0.0;
+double longitude;
 // clang-format on
 
 // Provided default values to give the option to manually override
