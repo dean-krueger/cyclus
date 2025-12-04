@@ -408,23 +408,34 @@ TEST_F(MaterialTest, TransmutePrevDecay) {
 // as coded.  We may decide to change the behavior in the future breaking
 // this test; the test will need to be modified accordingly.
 //
-// This test checks to see that, when materials are absorbed together, the
-// previous decay time for the larger quantity material is used as the value
-// for the new, combined material.
-TEST_F(MaterialTest, AbsorbPrevDecay) {
-  Material::Ptr m1 = Material::Create(fac, 1, diff_comp_);
-  Material::Ptr m2 = Material::Create(fac, 1, diff_comp_);
-  Material::Ptr m3 = Material::Create(fac, 1000, diff_comp_);
-  m3->Decay(10);
+// This test checks to see that, when materials are absorbed together, both 
+// materials are decayed prior to the absorption.
 
+TEST_F(MaterialTest, AbsorbPrevDecay) {
+  FakeContext* fake_ctx = new FakeContext(&ti, &rec);
+  TestFacility* fake_fac = new TestFacility(fake_ctx);
+
+  Material::Ptr m1 = Material::Create(fake_fac, 1, diff_comp_);
+  Material::Ptr m2 = Material::Create(fake_fac, 1, diff_comp_);
+  Material::Ptr m3 = Material::Create(fake_fac, 1000, diff_comp_);
+
+  // Set context time to 10 to match the decay time
+  fake_ctx->time(10);
+
+  m3->Decay(); // decay m3 to time 10
   EXPECT_EQ(0, m1->prev_decay_time());
   EXPECT_EQ(0, m2->prev_decay_time());
   EXPECT_EQ(10, m3->prev_decay_time());
 
+  fake_ctx->time(11);
+
   m1->Absorb(m3);
-  EXPECT_EQ(10, m1->prev_decay_time());
+  EXPECT_EQ(11, m1->prev_decay_time());
   m1->Absorb(m2);
-  EXPECT_EQ(10, m1->prev_decay_time());
+  EXPECT_EQ(11, m1->prev_decay_time());
+
+  delete fake_fac;
+  delete fake_ctx;
 }
 
 TEST_F(MaterialTest, DecayHeatTest) {
