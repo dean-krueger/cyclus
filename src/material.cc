@@ -128,7 +128,11 @@ void Material::Absorb(Material::Ptr mat) {
     comp_ = Composition::CreateFromMass(compmath::Add(v, otherv));
   }
   
-  qty_ += mat->qty_;
+  double tot_mass = qty_ + mat->quantity();
+  double avg_unit_value =
+      (qty_ * UnitValue() + mat->quantity() * mat->UnitValue()) / tot_mass;
+  SetUnitValue(avg_unit_value);
+  qty_ = tot_mass;
   mat->qty_ = 0;
   tracker_.Absorb(&mat->tracker_);
 }
