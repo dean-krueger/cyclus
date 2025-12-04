@@ -11,6 +11,7 @@
 #include "test_agents/test_facility.h"
 #include "recorder.h"
 #include "timer.h"
+#include "test_context.h"
 
 
 namespace cyclus {
