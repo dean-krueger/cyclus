@@ -2078,7 +2078,7 @@ cdef class _{{rclsname}}Request:
         self._target = None
         self._requester = None
         self._commodity = None
-        self._preference = None
+        self._unit_value = None
         self._exclusive = None
         self._cost_function = None
 
@@ -2112,12 +2112,12 @@ cdef class _{{rclsname}}Request:
         return self._commodity
 
     @property
-    def preference(self):
-        """This request's preference"""
-        if self._preference is not None:
-            return self._preference
-        self._preference = self.ptx.preference()
-        return self._preference
+    def unit_value(self):
+        """This request's unit_value"""
+        if self._unit_value is not None:
+            return self._unit_value
+        self._unit_value = self.ptx.UnitValue()
+        return self._unit_value
 
     @property
     def exclusive(self):
@@ -2183,7 +2183,7 @@ cdef shared_ptr[cpp_cyclus.RequestPortfolio[{{cyr}}]] {{ ts.funcname(r) }}_reque
                 if req['cost'] is not None:
                     raise ValueError('setting cost functions from Python is not yet '
                                     'supported.')
-                single_request = port.get().AddRequest(targ_ptr, requester, commod, req['preference'],
+                single_request = port.get().AddRequest(targ_ptr, requester, commod, req['unit_value'],
                                 req['exclusive'])
                 mreqs.push_back(single_request)
     port.get().AddMutualReqs(mreqs)
@@ -2209,7 +2209,7 @@ cdef shared_ptr[cpp_cyclus.BidPortfolio[{{cyr}}]] {{ ts.funcname(r) }}_bid_portf
                                              cpp_cyclus.Resource](
                         (<_{{rclsname}}> bid['offer']).ptx)
         port.get().AddBid((<_{{rclsname}}Request> bid['request']).ptx,
-                          offer_ptr, bidder, bid['exclusive'], bid['preference'])
+                          offer_ptr, bidder, bid['exclusive'], bid['unit_cost'])
     # add constraints
     for constr in pyport['constraints']:
         port.get().AddConstraint(
@@ -2223,7 +2223,7 @@ cdef class _{{rclsname}}Bid:
         self._request = None
         self._offer = None
         self._bidder = None
-        self._preference = None
+        self._unit_cost = None
         self._exclusive = None
 
 
@@ -2268,12 +2268,12 @@ cdef class _{{rclsname}}Bid:
         return self.request._commodity
 
     @property
-    def preference(self):
-        """This bid's preference"""
-        if self._preference is not None:
-            return self._preference
-        self._preference = self.ptx.preference()
-        return self._preference
+    def unit_cost(self):
+        """This bid's unit cost"""
+        if self._unit_cost is not None:
+            return self._unit_cost
+        self._unit_cost = self.ptx.UnitCost()
+        return self._unit_cost
 
     @property
     def exclusive(self):
@@ -2577,7 +2577,7 @@ cdef class _{{rclsname}}Request:
     cdef object _target
     cdef object _requester
     cdef object _commodity
-    cdef object _preference
+    cdef object _unit_value
     cdef object _exclusive
     cdef object _cost_function
 
@@ -2590,7 +2590,7 @@ cdef class _{{rclsname}}Bid:
     cdef object _request
     cdef object _offer
     cdef object _bidder
-    cdef object _preference
+    cdef object _unit_cost
     cdef object _exclusive
 
 cdef dict {{rfname}}_pref_map_to_py(cpp_cyclus.PrefMap[{{cyr}}].type& pm)
