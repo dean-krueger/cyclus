@@ -36,7 +36,7 @@ Predator::GetProductRequests() {
 }
 
 void Predator::AdjustProductPrefs(
-    cyclus::PrefMap<cyclus::Product>::type& prefs) {
+    cyclus::RequestBidMap<cyclus::Product>::type& prefs) {
   if (prefs.size() == 0)
     return;
   Request<Product>* req = prefs.begin()->first;
@@ -55,7 +55,7 @@ void Predator::AdjustProductPrefs(
                                      << " removing " << n_drop << " bids "
                                      << " out of " << prefs[req].size();
   for (int i = 0; i != n_drop; i++) {
-    prefs[req][bids[i]] = -1;
+    prefs[req].erase(bids[i]);
   }
 }
 

@@ -61,65 +61,44 @@ template <class T> class ExchangeTranslator {
       ExchangeNodeGroup::Ptr ns = TranslateBidPortfolio(xlation_ctx_, *bp_it);
       graph->AddSupplyGroup(ns);
 
-      // add each request-bid arc
+      // add each request-bid arc, skipping any (request, bid) pair whose
+      // entry has been erased from trader_arc_costs during the adjustment
+      // phase. A missing entry is the trader-facing convention for "remove
+      // this arc from the graph": the bid and request still exist, but no
+      // arc connects them. See AdjustMatlParams / AdjustProductParams.
       const std::set<Bid<T>*>& bids = (*bp_it)->bids();
       typename std::set<Bid<T>*>::const_iterator b_it;
       for (b_it = bids.begin(); b_it != bids.end(); ++b_it) {
         Bid<T>* bid = *b_it;
         Request<T>* req = bid->request();
+        auto requester_it = ex_ctx_->trader_arc_costs.find(req->requester());
+        if (requester_it == ex_ctx_->trader_arc_costs.end()) continue;
+        auto request_it = requester_it->second.find(req);
+        if (request_it == requester_it->second.end()) continue;
+        if (request_it->second.find(bid) == request_it->second.end()) continue;
         AddArc(req, bid, graph);
-      }
-    }
-    
-    // Now update all arcs with the computed arc weight and store it in pref 
-    // for backward compatibility
-    std::vector<Arc>& arcs = graph->arcs();
-    std::map<ExchangeNode::Ptr, std::vector<Arc>>& node_arc_map = graph->node_arc_map();
-    std::vector<Arc>::iterator it = arcs.begin();
-    while (it != arcs.end()) {
-      double arc_weight = it->mc() - it->mu();
-      it->pref(arc_weight);
-      ++it;
-    }
-
-    // Also update arc weights in node_arc_map_ to keep it in sync
-    for (std::map<ExchangeNode::Ptr, std::vector<Arc>>::iterator map_it = node_arc_map.begin();
-         map_it != node_arc_map.end(); ++map_it) {
-      for (std::vector<Arc>::iterator arc_it = map_it->second.begin();
-           arc_it != map_it->second.end(); ++arc_it) {
-        // Find matching arc in arcs_ vector and copy its pref value
-        for (std::vector<Arc>::iterator arcs_it = arcs.begin();
-             arcs_it != arcs.end(); ++arcs_it) {
-          if (*arc_it == *arcs_it) {
-            arc_it->pref(arcs_it->pref());
-            break;
-          }
-        }
       }
     }
 
     return graph;
   }
 
-  /// @brief adds a bid-request arc to a graph, using MC and MU values
+  /// @brief adds a bid-request arc to a graph, using the bid's unit cost,
+  /// the request's unit value, and the (possibly adjustment-modified) arc
+  /// cost from trader_arc_costs. The caller must guarantee that the
+  /// (req, bid) entry exists in ex_ctx_->trader_arc_costs (which is the case
+  /// after the bid loop's existence check in Translate()).
   void AddArc(Request<T>* req, Bid<T>* bid, ExchangeGraph::Ptr graph) {
-    // Get MC and MU from exchange context
-    auto& mc_map = ex_ctx_->trader_mc[req->requester()][req];
-    auto& mu_map = ex_ctx_->trader_mu[req->requester()][req];
-    
-    auto mc_it = mc_map.find(bid);
-    auto mu_it = mu_map.find(bid);
-    if (mc_it == mc_map.end() || mu_it == mu_map.end()) {
-      std::stringstream ss;
-      ss << "Bid not found in exchange context for arc addition.";
-      throw ValueError(ss.str());
-    }
-    
-    double mc = mc_it->second;
-    double mu = mu_it->second;
-    
-    Arc a = TranslateArc(xlation_ctx_, bid, mc, mu);
-    CLOG(LEV_DEBUG5) << "Adding arc with MC=" << mc << ", MU=" << mu;
+    double unit_cost = bid->UnitCost();
+    double unit_value = req->UnitValue();
+    double arc_cost =
+        ex_ctx_->trader_arc_costs.at(req->requester()).at(req).at(bid);
+
+    Arc a = TranslateArc(xlation_ctx_, bid, unit_cost, unit_value);
+    a.ArcCost(arc_cost);
+    CLOG(LEV_DEBUG5) << "Adding arc with Unit Cost =" << unit_cost
+                     << ", Unit Value =" << unit_value
+                     << ", Arc Cost =" << arc_cost;
     graph->AddArc(a);
   }
 
@@ -240,16 +219,13 @@ ExchangeNodeGroup::Ptr TranslateBidPortfolio(
 /// updates the unit capacities for the associated nodes on the arc
 template <class T>
 Arc TranslateArc(const ExchangeTranslationContext<T>& translation_ctx,
-                 Bid<T>* bid, double mc, double mu) {
+                 Bid<T>* bid, double unit_cost, double unit_value) {
   Request<T>* req = bid->request();
   ExchangeNode::Ptr unode = translation_ctx.request_to_node.at(req);
   ExchangeNode::Ptr vnode = translation_ctx.bid_to_node.at(bid);
   Arc arc(unode, vnode);
-  arc.mc(mc);
-  arc.mu(mu);
-  
-  // This gets overwritten in the translation step so we just set it to 0.0
-  arc.pref(0.0);
+  arc.set_unit_cost(unit_cost);
+  arc.set_unit_value(unit_value);
 
   typename T::Ptr offer = bid->offer();
   typename BidPortfolio<T>::Ptr bp = bid->portfolio();

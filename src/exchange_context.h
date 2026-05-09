@@ -19,22 +19,10 @@
 #endif
 
 namespace cyclus {
-
-template <class T> struct PrefMap {
+template <class T> struct RequestBidMap {
   typedef std::map<Request<T>*, std::map<Bid<T>*, double>> type;
   typedef Request<T>* request_ptr;
   typedef Bid<T>* bid_ptr;
-};
-
-/// @brief Maps for storing marginal cost (MC) and marginal utility (MU) adjustments
-/// These use the same structure as PrefMap but are semantically different:
-/// - MCMap stores marginal cost adjustments (from bids)
-/// - MUMap stores marginal utility adjustments (from requests)
-template <class T> struct MCMap {
-  typedef std::map<Request<T>*, std::map<Bid<T>*, double>> type;
-};
-template <class T> struct MUMap {
-  typedef std::map<Request<T>*, std::map<Bid<T>*, double>> type;
 };
 
 template <class T> struct CommodMap {
@@ -52,7 +40,7 @@ template <class T> struct CommodMap {
 /// provide introspection into the requests and bids it collects. Specifically,
 /// this class is designed to assist in phases of the Dynamic Resource
 /// Exchange. The second phase, Response to Request for Bids, is assisted by
-/// grouping requests by commodity type. The third phase, preference adjustment,
+/// grouping requests by commodity type. The third phase, adjustment,
 /// is assisted by grouping bids by the requester being responded to.
 template <class T> struct ExchangeContext {
  public:
@@ -87,8 +75,8 @@ template <class T> struct ExchangeContext {
     }
   }
 
-  /// @brief adds a bid to the appropriate containers, default marginal cost (MC)
-  /// and marginal utility (MU) are set
+  /// @brief adds a bid to the appropriate containers, default unit cost
+  /// and unit value are set
   /// @param pb the bid
   void AddBid(Bid<T>* pb) {
     assert(pb->bidder() != NULL);
@@ -96,23 +84,17 @@ template <class T> struct ExchangeContext {
 
     bids_by_request[pb->request()].push_back(pb);
 
-    // MC comes from bid preference (or 0.0 if NaN)
-    double bid_pref = pb->preference();
-    double mc = std::isnan(bid_pref) ? 0.0 : bid_pref;
+    // unit cost comes from bid
+    double unit_cost = pb->UnitCost();
+  
+    // unit value comes from request
+    double unit_value = pb->request()->UnitValue();
+
+    // define arc_cost as unit_cost - unit_value
+    double arc_cost = unit_cost - unit_value;
     
-    // MU comes from request preference
-    double req_pref = pb->request()->preference();
-    double mu = std::isnan(req_pref) ? 0.0 : req_pref;
-    
-    // Store MC and MU separately
-    trader_mc[pb->request()->requester()][pb->request()].insert(
-        std::make_pair(pb, mc));
-    trader_mu[pb->request()->requester()][pb->request()].insert(
-        std::make_pair(pb, mu));
-    
-    // Keep trader_prefs for backward compatibility during transition
-    trader_prefs[pb->request()->requester()][pb->request()].insert(
-        std::make_pair(pb, mc));
+    trader_arc_costs[pb->request()->requester()][pb->request()].insert(
+        std::make_pair(pb, arc_cost));
   }
 
   /// @brief a reference to an exchange's set of requests
@@ -132,15 +114,9 @@ template <class T> struct ExchangeContext {
 
   /// @brief maps request to all bids for request
   std::map<Request<T>*, std::vector<Bid<T>*>> bids_by_request;
-
-  /// @brief maps trader to request to bid to marginal cost (MC) adjustments
-  std::map<Trader*, typename MCMap<T>::type> trader_mc;
   
-  /// @brief maps trader to request to bid to marginal utility (MU) adjustments
-  std::map<Trader*, typename MUMap<T>::type> trader_mu;
-  
-  /// @deprecated Use trader_mc and trader_mu instead. Kept for backward compatibility.
-  std::map<Trader*, typename PrefMap<T>::type> trader_prefs;
+  /// @brief maps (requests --> (bids --> arc_costs))
+  std::map<Trader*, typename RequestBidMap<T>::type> trader_arc_costs;
 };
 
 }  // namespace cyclus
