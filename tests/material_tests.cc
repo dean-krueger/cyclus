@@ -134,6 +134,38 @@ TEST_F(MaterialTest, AbsorbIntoZeroMaterial) {
   EXPECT_FLOAT_EQ(test_size_, same_as_test_mat->quantity());
 }
 
+TEST_F(MaterialTest, AbsorbMatlWithoutContext) {
+  Material::Ptr no_ctx_mat = Material::CreateUntracked(0, test_comp_);
+  EXPECT_FALSE(no_ctx_mat->HasContext());
+  EXPECT_NO_THROW(test_mat_->Absorb(no_ctx_mat));
+}
+
+TEST_F(MaterialTest, BackwardsDecay) {
+  FakeContext* fake_ctx = new FakeContext(&ti, &rec);
+  TestFacility* fake_fac = new TestFacility(fake_ctx);
+
+  Material::Ptr m1 = Material::Create(fake_fac, 1, diff_comp_);
+  Material::Ptr m2 = Material::Create(fake_fac, 1, diff_comp_);
+
+  // Set context time to 10 to match the decay time
+  fake_ctx->time(10);
+
+  m2->Decay(); // decay m2 to time 10
+  EXPECT_EQ(0, m1->prev_decay_time());
+  EXPECT_EQ(10, m2->prev_decay_time());
+
+  fake_ctx->time(9);
+
+  // After manually setting the ctx time backwards, common_decay_time is 10,
+  // and ctx->time() is 9, meaning decay will set dt = 0 with std::max, and 
+  // prev_decay_time for the combined mat should remain at 10.
+  m1->Absorb(m2);
+  EXPECT_EQ(10, m1->prev_decay_time());
+
+  delete fake_fac;
+  delete fake_ctx;
+}
+
 TEST_F(MaterialTest, ExtractMass) {
   double amt = test_size_ / 3;
   double diff = test_size_ - amt;
