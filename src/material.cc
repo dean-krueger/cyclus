@@ -106,8 +106,8 @@ void Material::Absorb(Material::Ptr mat) {
 
   // force both mateiral objects to advance to the same decay time
   int common_decay_time = std::max(this->prev_decay_time_, mat->prev_decay_time_);
-  if (ctx_ != NULL && ctx_->sim_info().decay != "never") {
-    common_decay_time = ctx_->time();    
+  if (HasContext() && mat->HasContext() && ctx_->sim_info().decay != "never") {
+    common_decay_time = std::max(ctx_->time(), common_decay_time);    
   }
   mat->Decay(common_decay_time);
   this->Decay(common_decay_time);
@@ -208,7 +208,8 @@ void Material::Decay(int curr_time) {
     curr_time = ctx_->time();
   }
 
-  int dt = curr_time - prev_decay_time_;
+  // Block backwards decay with std::max
+  int dt = std::max(curr_time - prev_decay_time_, 0);
   if (dt == 0) {
     return;
   }
@@ -246,7 +247,8 @@ void Material::Decay(int curr_time) {
     }
   }
 
-  prev_decay_time_ = curr_time;  // this must go before Transmute call
+  // Need to set prev_decay_time before Transmute. Block setting it backwards.
+  prev_decay_time_ = std::max(curr_time, prev_decay_time_); 
   Composition::Ptr decayed = comp_->Decay(dt, secs_per_timestep);
   Transmute(decayed);
 }
