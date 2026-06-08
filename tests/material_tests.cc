@@ -137,30 +137,33 @@ TEST_F(MaterialTest, AbsorbIntoZeroMaterial) {
 TEST_F(MaterialTest, AbsorbMatlWithoutContext) {
   Material::Ptr no_ctx_mat = Material::CreateUntracked(0, test_comp_);
   EXPECT_FALSE(no_ctx_mat->HasContext());
+  // Since test_mat_ and no_ctx_mat both don't have context this is fine
   EXPECT_NO_THROW(test_mat_->Absorb(no_ctx_mat));
 }
 
-TEST_F(MaterialTest, BackwardsDecay) {
+TEST_F(MaterialTest, DecayTiming) {
   FakeContext* fake_ctx = new FakeContext(&ti, &rec);
   TestFacility* fake_fac = new TestFacility(fake_ctx);
 
+  double untracked_qty = 1.0;
+
   Material::Ptr m1 = Material::Create(fake_fac, 1, diff_comp_);
-  Material::Ptr m2 = Material::Create(fake_fac, 1, diff_comp_);
+  Material::Ptr m2 = Material::CreateUntracked(untracked_qty, diff_comp_);
 
   // Set context time to 10 to match the decay time
   fake_ctx->time(10);
 
-  m2->Decay(); // decay m2 to time 10
-  EXPECT_EQ(0, m1->prev_decay_time());
-  EXPECT_EQ(10, m2->prev_decay_time());
-
-  fake_ctx->time(9);
-
-  // After manually setting the ctx time backwards, common_decay_time is 10,
-  // and ctx->time() is 9, meaning decay will set dt = 0 with std::max, and 
-  // prev_decay_time for the combined mat should remain at 10.
-  m1->Absorb(m2);
+  m1->Decay(); // decay m1 to time 10
   EXPECT_EQ(10, m1->prev_decay_time());
+  EXPECT_ANY_THROW(m1->Decay(9)); // no backwards decay for tracked mats
+  EXPECT_ANY_THROW(m1->Decay(1000)); // tracked can't decay past sim time
+
+  m2->Decay(10); // decay m2 to time 10
+  EXPECT_EQ(10, m2->prev_decay_time());
+  EXPECT_NO_THROW(m2->Decay(6)); // Backwards decay is fine if untracked
+  EXPECT_EQ(6, m2->prev_decay_time()); // correctly updates prev_decay_time_
+  EXPECT_NO_THROW(m2->Decay(1000)); // Arbitrary decay fine on untracked
+  EXPECT_EQ(1000, m2->prev_decay_time());
 
   delete fake_fac;
   delete fake_ctx;
@@ -243,15 +246,15 @@ TEST_F(MaterialTest, ExtractInGrams) {
 
 TEST_F(MaterialTest, DecayResBuf) {
   // prequeries
-  cyclus::toolkit::MatQuery orig(tracked_mat_);
+  cyclus::toolkit::MatQuery orig(untracked_mat_);
   double u235_qty = orig.mass(u235_);
   double pb208_qty = orig.mass(pb208_);
   double am241_qty = orig.mass(am241_);
   double sr89_qty = orig.mass(sr89_);
-  double orig_mass = tracked_mat_->quantity();
+  double orig_mass = untracked_mat_->quantity();
 
   cyclus::toolkit::ResBuf<cyclus::Material> res_buf;
-  res_buf.Push(tracked_mat_);
+  res_buf.Push(untracked_mat_); // use untracked mat so we can forward decay
   // decay for 2 months which is just over 1 Sr-89 half-life
   res_buf.Decay(2);
   cyclus::Material::Ptr pop_mat = res_buf.Pop();
@@ -268,17 +271,17 @@ TEST_F(MaterialTest, DecayResBuf) {
 
 TEST_F(MaterialTest, DecayManual) {
   // prequeries
-  cyclus::toolkit::MatQuery orig(tracked_mat_);
+  cyclus::toolkit::MatQuery orig(untracked_mat_);
   double u235_qty = orig.mass(u235_);
   double pb208_qty = orig.mass(pb208_);
   double am241_qty = orig.mass(am241_);
   double sr89_qty = orig.mass(sr89_);
-  double orig_mass = tracked_mat_->quantity();
+  double orig_mass = untracked_mat_->quantity();
 
-  tracked_mat_->Decay(100);
+  untracked_mat_->Decay(100);
 
   // postquery
-  cyclus::toolkit::MatQuery mq(tracked_mat_);
+  cyclus::toolkit::MatQuery mq(untracked_mat_);
 
   // postchecks
   EXPECT_NE(u235_qty, mq.mass(u235_));
@@ -385,20 +388,22 @@ TEST_F(MaterialTest, DecayCustomTimeStep) {
   cyclus::Env::SetNucDataPath();
   std::string cs137 ("Cs137");
   uint64_t custom_timestep = pyne::half_life(cs137);
+  double qty = 1.0;
 
   SimInfo si(10, 2015, 1, "", "manual");
   si.dt = custom_timestep;
-  cyclus::Context ctx(&ti, &rec);
-  ctx.InitSim(si);
-  Agent* a = new TestFacility(&ctx);
+  FakeContext* fake_ctx = new FakeContext(&ti, &rec);
+  fake_ctx->InitSim(si);
 
   CompMap v;
   v[id("Cs137")] = 1;
   Composition::Ptr c = Composition::CreateFromAtom(v);
   CompMap tmp = c->atom();
-  Material::Ptr m = Material::Create(a, 1.0, c);
+  TestFacility* fake_fac = new TestFacility(fake_ctx);
+  Material::Ptr m = Material::Create(fake_fac, qty, c);
 
-  m->Decay(1);
+  fake_ctx->time(1);
+  m->Decay();
 
   Composition::Ptr newc = m->comp();
   CompMap newv = newc->atom();
@@ -407,14 +412,17 @@ TEST_F(MaterialTest, DecayCustomTimeStep) {
   // one half of atoms should have decayed away
   double eps = cyclus::CY_NEAR_ZERO;
   EXPECT_NEAR(0.5, newv[id("Cs137")], eps) << "one Cs137 half-life duration time step did not decay half of Cs atoms";
+
+  delete fake_fac;
+  delete fake_ctx;
 }
 
 TEST_F(MaterialTest, ExtractPrevDecay) {
-  tracked_mat_->Decay(10);
-  double qty = tracked_mat_->quantity() / 2;
-  cyclus::Material::Ptr x = tracked_mat_->ExtractQty(qty);
+  untracked_mat_->Decay(10);
+  double qty = untracked_mat_->quantity() / 2;
+  cyclus::Material::Ptr x = untracked_mat_->ExtractQty(qty);
 
-  EXPECT_EQ(tracked_mat_->prev_decay_time(), x->prev_decay_time());
+  EXPECT_EQ(untracked_mat_->prev_decay_time(), x->prev_decay_time());
 }
 
 // Transmute should reset a material's prev_decay_time to the current
@@ -447,9 +455,13 @@ TEST_F(MaterialTest, AbsorbPrevDecay) {
   FakeContext* fake_ctx = new FakeContext(&ti, &rec);
   TestFacility* fake_fac = new TestFacility(fake_ctx);
 
+  double untracked_qty = 1.0;
+
   Material::Ptr m1 = Material::Create(fake_fac, 1, diff_comp_);
   Material::Ptr m2 = Material::Create(fake_fac, 1, diff_comp_);
   Material::Ptr m3 = Material::Create(fake_fac, 1000, diff_comp_);
+  Material::Ptr m4 = Material::CreateUntracked(untracked_qty, diff_comp_);
+  Material::Ptr m5 = Material::CreateUntracked(untracked_qty, diff_comp_);
 
   // Set context time to 10 to match the decay time
   fake_ctx->time(10);
@@ -465,6 +477,16 @@ TEST_F(MaterialTest, AbsorbPrevDecay) {
   EXPECT_EQ(11, m1->prev_decay_time());
   m1->Absorb(m2);
   EXPECT_EQ(11, m1->prev_decay_time());
+
+  // We shouldn't be able to absorb a more-decayed untracked material 
+  // but we should be able to absorb materials not in a context.
+  m4->Decay(11);
+  EXPECT_ANY_THROW(m5->Absorb(m4));
+  EXPECT_NO_THROW(m4->Absorb(m5));
+
+  // Can't combine a tracked an untracked mat
+  EXPECT_ANY_THROW(m1->Absorb(m5));
+  EXPECT_ANY_THROW(m5->Absorb(m1));
 
   delete fake_fac;
   delete fake_ctx;

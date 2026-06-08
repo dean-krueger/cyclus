@@ -27,6 +27,7 @@ class MaterialTest : public ::testing::Test {
   Material::Ptr diff_mat_;
   Material::Ptr default_mat_;
   Material::Ptr tracked_mat_;
+  Material::Ptr untracked_mat_;
   Material::Ptr tracked_mat_no_decay_;
   long int u235_halflife_;
   int th228_halflife_;
@@ -89,6 +90,7 @@ class MaterialTest : public ::testing::Test {
     two_test_mat_ = Material::CreateUntracked(2 * test_size_, test_comp_);
     ten_test_mat_ = Material::CreateUntracked(10 * test_size_, test_comp_);
     diff_mat_ = Material::CreateUntracked(test_size_, diff_comp_);
+    untracked_mat_ = Material::CreateUntracked(1000, diff_comp_);
 
     // tracked material
     tracked_mat_ = Material::Create(fac, 1000, diff_comp_);
