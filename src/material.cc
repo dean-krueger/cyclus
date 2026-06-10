@@ -140,6 +140,7 @@ void Material::Absorb(Material::Ptr mat) {
       (qty_ * UnitValue() + mat->quantity() * mat->UnitValue()) / tot_mass;
   SetUnitValue(avg_unit_value);
   qty_ = tot_mass;
+
   mat->qty_ = 0;
   tracker_.Absorb(&mat->tracker_);
 }
