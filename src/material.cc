@@ -105,9 +105,16 @@ Material::Ptr Material::ExtractComp(double qty, Composition::Ptr c,
 void Material::Absorb(Material::Ptr mat) {
 
   // force both mateiral objects to advance to the same decay time
-  int common_decay_time = std::max(this->prev_decay_time_, mat->prev_decay_time_);
-  if (HasContext() && mat->HasContext() && ctx_->sim_info().decay != "never") {
-    common_decay_time = std::max(ctx_->time(), common_decay_time);    
+  int common_decay_time;
+  if (HasContext() && mat->HasContext()) {
+    common_decay_time = ctx_->time();    
+  } else if (!HasContext() && !mat->HasContext() 
+              && mat->prev_decay_time_ > prev_decay_time_) {
+    throw ValueError("Cannot absorb a material that is more decayed than this one");
+  } else if ((HasContext() && !mat->HasContext()) || (!HasContext() && mat->HasContext())) {
+    throw cyclus::Error("Cannot combine a tracked and untracked material!");
+  } else {
+    common_decay_time = prev_decay_time_;
   }
   mat->Decay(common_decay_time);
   this->Decay(common_decay_time);
@@ -208,13 +215,18 @@ void Material::Decay(int curr_time) {
     curr_time = ctx_->time();
   }
 
-  // Block backwards decay with std::max
-  int dt = std::max(curr_time - prev_decay_time_, 0);
-  if (dt == 0) {
-    return;
+
+  int dt = curr_time - prev_decay_time_;
+  
+  // Block decay backwards and past sim time for materials in a context
+  if (ctx_ && (dt < 0 || curr_time > ctx_->time())) {
+    std::string msg = "Materials in a context cannot decay backwards or "
+                      "past the current simulation time!";
+    throw cyclus::Error(msg);
   }
 
-  double eps = 1e-3;
+  // eps_decay defined such that tritium (12.32 yr half life) decays over 1 day
+  double eps_decay = 1e-4;
   const CompMap c = comp_->atom();
 
   // If composition has too many nuclides (i.e. > 100), it is cheaper to
@@ -228,8 +240,8 @@ void Material::Decay(int curr_time) {
 
   if (!decay) {
     // Only do the decay calc if one of the nuclides would change in number
-    // density more than fraction eps.
-    // i.e. decay if   (1 - eps) > exp(-lambda*dt)
+    // density more than fraction eps_decay.
+    // i.e. decay if   (1 - eps_decay) > exp(-lambda*dt)
     CompMap::const_reverse_iterator it;
     for (it = c.rbegin(); it != c.rend(); ++it) {
       int nuc = it->first;
@@ -237,7 +249,7 @@ void Material::Decay(int curr_time) {
           pyne::decay_const(nuc) * static_cast<double>(secs_per_timestep);
       double change =
           1.0 - std::exp(-lambda_timesteps * static_cast<double>(dt));
-      if (change >= eps) {
+      if (change >= eps_decay) {
         decay = true;
         break;
       }
@@ -247,8 +259,9 @@ void Material::Decay(int curr_time) {
     }
   }
 
-  // Need to set prev_decay_time before Transmute. Block setting it backwards.
-  prev_decay_time_ = std::max(curr_time, prev_decay_time_); 
+  // Need to set prev_decay_time before Transmute.
+  prev_decay_time_ = curr_time; 
+  
   Composition::Ptr decayed = comp_->Decay(dt, secs_per_timestep);
   Transmute(decayed);
 }
