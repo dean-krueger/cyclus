@@ -104,14 +104,14 @@ Material::Ptr Material::ExtractComp(double qty, Composition::Ptr c,
 
 void Material::Absorb(Material::Ptr mat) {
 
-  // force both mateiral objects to advance to the same decay time
+  // Handle absorb-specific decay rules
   int common_decay_time;
   if (HasContext() && mat->HasContext()) {
     common_decay_time = ctx_->time();    
   } else if (!HasContext() && !mat->HasContext() 
               && mat->prev_decay_time_ > prev_decay_time_) {
     throw ValueError("Cannot absorb a material that is more decayed than this one");
-  } else if ((HasContext() && !mat->HasContext()) || (!HasContext() && mat->HasContext())) {
+  } else if (HasContext() != !mat->HasContext()) {
     throw cyclus::Error("Cannot combine a tracked and untracked material!");
   } else {
     common_decay_time = prev_decay_time_;
