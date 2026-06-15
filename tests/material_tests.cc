@@ -515,14 +515,24 @@ TEST_F(MaterialTest, DecaySmallAmount) {
   v[tritium_id] = 1.0;
   Composition::Ptr tritium_comp = Composition::CreateFromMass(v);
 
+  // Set up the one day time step context
+  int one_day = 86400;
+  cyclus::Timer ti_day_timestep;
+  si_day_timestep = SimInfo(100, 2015, 1, "", "manual");
+  si_day_timestep.dt = one_day;
+  FakeContext* ctx_day_timestep = new FakeContext(&ti_day_timestep, &rec);
+  ctx_day_timestep->InitSim(si_day_timestep);
+  TestFacility* fac_day_timestep = new TestFacility(ctx_day_timestep);
+
   Material::Ptr tritium = Material::Create(fac_day_timestep, qty, tritium_comp);
 
   cyclus::toolkit::MatQuery mq(tritium);
   double start_qty = mq.mass(tritium_id);
   EXPECT_EQ(qty, start_qty);
 
-  // Decay forward by one day (we use the one day time step facility)
-  tritium->Decay(1);
+  // Decay forward by one day (we have to push the fake_ctx's time forward first)
+  ctx_day_timestep->time(1);
+  tritium->Decay();
   double decayed_qty = mq.mass(tritium_id);
 
   // NOTE: we've already tested that Decay is decaying the correct amt, so we

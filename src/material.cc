@@ -111,7 +111,7 @@ void Material::Absorb(Material::Ptr mat) {
   } else if (!HasContext() && !mat->HasContext() 
               && mat->prev_decay_time_ > prev_decay_time_) {
     throw ValueError("Cannot absorb a material that is more decayed than this one");
-  } else if (HasContext() != !mat->HasContext()) {
+  } else if (HasContext() != mat->HasContext()) {
     throw cyclus::Error("Cannot combine a tracked and untracked material!");
   } else {
     common_decay_time = prev_decay_time_;
