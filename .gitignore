@@ -90,3 +90,4 @@ rever/
 
 # Coverage
 tests/html/*
+*coverage.info
