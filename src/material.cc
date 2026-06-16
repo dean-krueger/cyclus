@@ -104,10 +104,17 @@ Material::Ptr Material::ExtractComp(double qty, Composition::Ptr c,
 
 void Material::Absorb(Material::Ptr mat) {
 
-  // force both mateiral objects to advance to the same decay time
-  int common_decay_time = std::max(this->prev_decay_time_, mat->prev_decay_time_);
-  if (ctx_ != NULL && ctx_->sim_info().decay != "never") {
+  // Handle absorb-specific decay rules
+  int common_decay_time;
+  if (HasContext() && mat->HasContext()) {
     common_decay_time = ctx_->time();    
+  } else if (!HasContext() && !mat->HasContext() 
+              && mat->prev_decay_time_ > prev_decay_time_) {
+    throw ValueError("Cannot absorb a material that is more decayed than this one");
+  } else if (HasContext() != mat->HasContext()) {
+    throw cyclus::Error("Cannot combine a tracked and untracked material!");
+  } else {
+    common_decay_time = prev_decay_time_;
   }
   mat->Decay(common_decay_time);
   this->Decay(common_decay_time);
@@ -128,7 +135,12 @@ void Material::Absorb(Material::Ptr mat) {
     comp_ = Composition::CreateFromMass(compmath::Add(v, otherv));
   }
   
-  qty_ += mat->qty_;
+  double tot_mass = qty_ + mat->quantity();
+  double avg_unit_value =
+      (qty_ * UnitValue() + mat->quantity() * mat->UnitValue()) / tot_mass;
+  SetUnitValue(avg_unit_value);
+  qty_ = tot_mass;
+
   mat->qty_ = 0;
   tracker_.Absorb(&mat->tracker_);
 }
@@ -204,9 +216,14 @@ void Material::Decay(int curr_time) {
     curr_time = ctx_->time();
   }
 
+
   int dt = curr_time - prev_decay_time_;
-  if (dt == 0) {
-    return;
+  
+  // Block decay backwards and past sim time for materials in a context
+  if (ctx_ && (dt < 0 || curr_time > ctx_->time())) {
+    std::string msg = "Materials in a context cannot decay backwards or "
+                      "past the current simulation time!";
+    throw cyclus::Error(msg);
   }
 
   // eps_decay defined such that tritium (12.32 yr half life) decays over 1 day
@@ -243,7 +260,9 @@ void Material::Decay(int curr_time) {
     }
   }
 
-  prev_decay_time_ = curr_time;  // this must go before Transmute call
+  // Need to set prev_decay_time before Transmute.
+  prev_decay_time_ = curr_time; 
+  
   Composition::Ptr decayed = comp_->Decay(dt, secs_per_timestep);
   Transmute(decayed);
 }
