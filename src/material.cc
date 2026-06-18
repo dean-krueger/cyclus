@@ -103,34 +103,34 @@ Material::Ptr Material::ExtractComp(double qty, Composition::Ptr c,
 }
 
 void Material::Absorb(Material::Ptr mat) {
+  
+  bool tracked = HasContext();
+  bool mat_tracked = mat->HasContext();
 
-bool tracked = HasContext();
-bool mat_tracked = mat->HasContext();
-
-if (tracked != mat_tracked) {
-  throw cyclus::Error("Cannot combine a tracked and untracked material!");
-}
-
-if (!tracked) {
-  if (mat->prev_decay_time_ > prev_decay_time_) {
-    throw ValueError(
-        "Cannot absorb a material that is more decayed than this one");
+  if (tracked != mat_tracked) {
+    throw cyclus::Error("Cannot combine a tracked and untracked material!");
   }
 
-  // Synchronize the incoming material with this material.
-  mat->Decay(prev_decay_time_);
-} else if (ctx_->sim_info().decay == "lazy") {
-  // NOTE: Absorb will only Decay materials like this if the decay mode is
-  // set to lazy. If more decay modes are introduced in the future which 
-  // want Absorb to decay, this will need to be changed
-  int common_decay_time = ctx_->time();
+  if (!tracked) {
+    if (mat->prev_decay_time_ > prev_decay_time_) {
+      throw ValueError(
+          "Cannot absorb a material that is more decayed than this one");
+    }
 
-  mat->Decay(common_decay_time);
-  Decay(common_decay_time);
+    // Synchronize the incoming material with this material.
+    mat->Decay(prev_decay_time_);
+  } else if (ctx_->sim_info().decay == "lazy") {
+    // NOTE: Absorb will only Decay materials like this if the decay mode is
+    // set to lazy. If more decay modes are introduced in the future which 
+    // want Absorb to decay, this will need to be changed
+    int common_decay_time = ctx_->time();
 
-  // Decay may return early when the change is below its threshold.
-  prev_decay_time_ = common_decay_time;
-}
+    mat->Decay(common_decay_time);
+    Decay(common_decay_time);
+
+    // Decay may return early when the change is below its threshold.
+    prev_decay_time_ = common_decay_time;
+  }
 
   // these calls force lazy evaluation if in lazy decay mode
   Composition::Ptr c0 = comp();
