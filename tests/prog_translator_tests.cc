@@ -34,15 +34,14 @@ TEST(ProgTranslatorTests, translation) {
   int nrows = 8;
   int nexcl = 3;
 
-  // Marginal cost (MC) and marginal utility (MU) values for each arc
-  // MC comes from bid, MU comes from request
-  double mc_vals[] = {5.0, 2.0, 1.0, 0.5, 1.5};  // MC values (non-negative)
-  double mu_vals[] = {0.0, 0.5, 0.0, 0.0, 0.2};  // MU values
+  // unit value (from bid) and unit value (from request) for each arc
+  double unit_cost_vals[] = {5.0, 2.0, 1.0, 0.5, 1.5};  
+  double unit_value_vals[] = {0.0, 0.5, 0.0, 0.0, 0.2}; 
   
-  // Calculate arc_weight = MC - MU for each arc
-  double arc_weights[narcs];
+  // Calculate arc_cost = unit_cost - unit_value for each arc
+  double arc_costs[narcs];
   for (int i = 0; i != narcs; i++) {
-    arc_weights[i] = mc_vals[i] - mu_vals[i];
+    arc_costs[i] = unit_cost_vals[i] - unit_value_vals[i];
   }
 
   double ucaps_a_0[] = {0.5, 0.4};
@@ -67,22 +66,22 @@ TEST(ProgTranslatorTests, translation) {
   double excl_flow[] = {0, 2, 2, 0, 2, 0, 0};
 
   // Calculate expected objective coefficients using ExchangeSolver::Cost logic
-  // For non-exclusive arcs: obj_coeff = arc_weight
-  // For exclusive arcs with excl_val > 0: obj_coeff = arc_weight * (1.0 / excl_val)
+  // For non-exclusive arcs: obj_coeff = arc_cost
+  // For exclusive arcs with excl_val > 0: obj_coeff = arc_cost * (1.0 / excl_val)
   std::vector<double> obj_coeffs;
   double excl_val = 2.0;  // excl_val for exclusive arcs (set by excl_flow[1])
   for (int i = 0; i != narcs; i++) {
-    double coeff = arc_weights[i];
+    double coeff = arc_costs[i];
     if (excl_flow[i] != 0) {
-      // Exclusive arcs: ExchangeSolver::Cost returns arc_weight * (1.0 / excl_val)
-      coeff = arc_weights[i] * (1.0 / excl_val);
+      // Exclusive arcs: ExchangeSolver::Cost returns arc_cost * (1.0 / excl_val)
+      coeff = arc_costs[i] * (1.0 / excl_val);
     }
     obj_coeffs.push_back(coeff);
   }
 
   // Calculate max_cost for faux arcs
   double cost_add = 1;
-  double max_obj_coeff = arc_weights[0];  // Use arc_weight directly
+  double max_obj_coeff = arc_costs[0];  // Use arc_cost directly
   double min_row_coeff = 0.3;  // ucaps_a_3
   double max_cost = max_obj_coeff / min_row_coeff + cost_add;
   for (int i = 0; i != nfaux; i++) {
@@ -100,25 +99,25 @@ TEST(ProgTranslatorTests, translation) {
   ExchangeNode::Ptr d1(new ExchangeNode());
 
   Arc x0(a0, c0);
-  x0.mc(mc_vals[0]);
-  x0.mu(mu_vals[0]);
-  x0.pref(arc_weights[0]);  // arc_weight = MC - MU
+  x0.unit_cost(unit_cost_vals[0]);
+  x0.set_pref_mod(unit_value_vals[0]);
+  x0.arc_cost(arc_costs[0]);
   Arc x1(b0, c1);
-  x1.mc(mc_vals[1]);
-  x1.mu(mu_vals[1]);
-  x1.pref(arc_weights[1]);
+  x1.unit_cost(unit_cost_vals[1]);
+  x1.set_pref_mod(unit_value_vals[1]);
+  x1.arc_cost(arc_costs[1]);
   Arc x2(b1, c2);
-  x2.mc(mc_vals[2]);
-  x2.mu(mu_vals[2]);
-  x2.pref(arc_weights[2]);
+  x2.unit_cost(unit_cost_vals[2]);
+  x2.set_pref_mod(unit_value_vals[2]);
+  x2.arc_cost(arc_costs[2]);
   Arc x3(a1, d0);
-  x3.mc(mc_vals[3]);
-  x3.mu(mu_vals[3]);
-  x3.pref(arc_weights[3]);
+  x3.unit_cost(unit_cost_vals[3]);
+  x3.set_pref_mod(unit_value_vals[3]);
+  x3.arc_cost(arc_costs[3]);
   Arc x4(b1, d1);
-  x4.mc(mc_vals[4]);
-  x4.mu(mu_vals[4]);
-  x4.pref(arc_weights[4]);
+  x4.unit_cost(unit_cost_vals[4]);
+  x4.set_pref_mod(unit_value_vals[4]);
+  x4.arc_cost(arc_costs[4]);
 
   a0->unit_capacities[x0] = std::vector<double>(
       ucaps_a_0, ucaps_a_0 + sizeof(ucaps_a_0) / sizeof(ucaps_a_0[0]) );

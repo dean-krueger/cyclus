@@ -220,10 +220,10 @@ TEST_F(TradeExecutorTests, NoThrowWriting) {
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
 TEST_F(TradeExecutorDatabaseTests, WrapperFunctionAndBasicRecording) {
   
-  double orig_pref = 3.14;
+  double orig_unit_cost = 3.14;
   double test_trade_amt = 1.0;
   Request<Material>* req = Request<Material>::Create(fac_.mat, r1_);
-  Bid<Material>* bid = Bid<Material>::Create(req, fac_.mat, s1_, false, orig_pref);
+  Bid<Material>* bid = Bid<Material>::Create(req, fac_.mat, s1_, false, orig_unit_cost);
   
   Trade<Material> trade(req, bid, test_trade_amt);
   std::vector<Trade<Material>> trades;
@@ -235,20 +235,20 @@ TEST_F(TradeExecutorDatabaseTests, WrapperFunctionAndBasicRecording) {
   EXPECT_NO_THROW(exec.ExecuteTrades(ctx_));
   recorder_.Flush();
   
-  // Verify bid object retains original preference
-  EXPECT_DOUBLE_EQ(bid->preference(), orig_pref);
+  // Verify bid object retains original cost
+  EXPECT_DOUBLE_EQ(bid->unit_cost(), orig_unit_cost);
   
-  // Query database and verify MC and MU are recorded (no ExchangeContext means no adjustments)
+  // Query database and verify UnitCost and UnitValue are recorded (no ExchangeContext means no adjustments)
   cyclus::QueryResult qr = backend_->Query("Transactions", NULL);
   EXPECT_EQ(1, qr.rows.size()) << "Expected 1 transaction, got " << qr.rows.size();
   
   if (qr.rows.size() > 0) {
-    double recorded_mc = qr.GetVal<double>("MC", 0);
-    double recorded_mu = qr.GetVal<double>("MU", 0);
+    double recorded_cost = qr.GetVal<double>("UnitCost", 0);
+    double recorded_value = qr.GetVal<double>("UnitValue", 0);
     
-    // MC should equal bid preference, MU should equal request preference (default = 1.0)
-    EXPECT_DOUBLE_EQ(recorded_mc, orig_pref);
-    EXPECT_DOUBLE_EQ(recorded_mu, 1.0);  // Default request preference
+    // UnitCost should equal val from bid, UnitValue should equal value from request (default = 1.0)
+    EXPECT_DOUBLE_EQ(recorded_cost, orig_unit_cost);
+    EXPECT_DOUBLE_EQ(recorded_value, 1.0);
   }
   
   // Cleanup
@@ -257,29 +257,28 @@ TEST_F(TradeExecutorDatabaseTests, WrapperFunctionAndBasicRecording) {
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-TEST_F(TradeExecutorDatabaseTests, ExchangeContextWithAdjustedPreferences) {
+TEST_F(TradeExecutorDatabaseTests, ExchangeContextWithAdjustedArcCost) {
   // Create one trade to test ExchangeContext functionality
-  double orig_pref = 2.5;
+  double orig_unit_cost = 2.5;
+  double orig_unit_val = 4.5;
   double trade_amt = 2.0;
   
   Request<Material>* req = Request<Material>::Create(fac_.mat, r1_);
-  Bid<Material>* bid = Bid<Material>::Create(req, fac_.mat, s1_, false, orig_pref);
+  Bid<Material>* bid = Bid<Material>::Create(req, fac_.mat, s1_, false, orig_unit_cost);
   
   std::vector<Trade<Material>> trades;
   trades.push_back(Trade<Material>(req, bid, trade_amt));
   
-  // Create ExchangeContext with adjusted MC and MU
+  // Create ExchangeContext with adjusted unit cost and unit value
   ExchangeContext<Material> ex_ctx;
   ex_ctx.AddRequest(req);
   ex_ctx.AddBid(bid);
   
-  // Set different adjusted MC and MU values
-  double adj_mc = 4.2;
-  double adj_mu = 1.8;
+  // Set different adjusted unit cost and unit value
+  double adj_arc_cost = 4.2;
   
-  // Set adjusted MC and MU in ExchangeContext
-  ex_ctx.trader_mc[r1_][req][bid] = adj_mc;
-  ex_ctx.trader_mu[r1_][req][bid] = adj_mu;
+  // Set adjusted unit cost and unit value in ExchangeContext
+  ex_ctx.trader_arc_costs[r1_][req][bid] = adj_arc_cost;
   
   TradeExecutor<Material> exec(trades);
   
@@ -287,21 +286,23 @@ TEST_F(TradeExecutorDatabaseTests, ExchangeContextWithAdjustedPreferences) {
   EXPECT_NO_THROW(exec.ExecuteTrades(ctx_, &ex_ctx));
   recorder_.Flush();
   
-  // Verify original bid preference is preserved
-  EXPECT_DOUBLE_EQ(bid->preference(), orig_pref);
+  // Verify original bid unit cost is preserved
+  EXPECT_DOUBLE_EQ(bid->unit_cost(), orig_unit_cost);
   
-  // Query database and verify adjusted MC and MU are recorded
+  // Query database and verify adjusted unit cost and unit value are recorded
   cyclus::QueryResult qr = backend_->Query("Transactions", NULL);
   EXPECT_EQ(1, qr.rows.size()) << "Expected 1 transaction, got " << qr.rows.size();
   
   if (qr.rows.size() > 0) {
-    double recorded_mc = qr.GetVal<double>("MC", 0);
-    double recorded_mu = qr.GetVal<double>("MU", 0);
-    
-    // Verify the adjusted MC and MU values are recorded (not the originals)
-    EXPECT_DOUBLE_EQ(recorded_mc, adj_mc);
-    EXPECT_DOUBLE_EQ(recorded_mu, adj_mu);
-    EXPECT_NE(recorded_mc, orig_pref);  // Adjusted MC should differ from original bid preference
+    double recorded_cost = qr.GetVal<double>("UnitCost", 0);
+    double recorded_value = qr.GetVal<double>("UnitValue", 0);
+    double recorded_arc_cost = qr.GetVal<double>("ArcCost", 0);
+
+    // We changed the arc_cost directly here, so the original unit cost/value
+    // should persist, with a new adjusted_arc_cost
+    EXPECT_DOUBLE_EQ(recorded_cost, orig_unit_cost);
+    EXPECT_DOUBLE_EQ(recorded_value, cyclus::kDefaultUnitValue);
+    EXPECT_DOUBLE_EQ(recorded_arc_cost, adj_arc_cost);
   }
   
   // Cleanup
@@ -310,29 +311,29 @@ TEST_F(TradeExecutorDatabaseTests, ExchangeContextWithAdjustedPreferences) {
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
-TEST_F(TradeExecutorDatabaseTests, MixedPreferenceScenarios) {
+TEST_F(TradeExecutorDatabaseTests, MixedCostScenarios) {
   
-  double explicit_pref = 2.8;
+  double explicit_cost = 2.8;
   double trade_amt = 1.0;
   Request<Material>* req = Request<Material>::Create(fac_.mat, r1_);
   
-  // One bid with explicit preference, one with NaN (default)
-  Bid<Material>* bid_explicit = Bid<Material>::Create(req, fac_.mat, s1_, false, explicit_pref);
-  Bid<Material>* bid_nan = Bid<Material>::Create(req, fac_.mat, s2_);  // Default NaN preference
+  // One bid with explicit unit cost, one with default value
+  Bid<Material>* bid_explicit = Bid<Material>::Create(req, fac_.mat, s1_, false, explicit_cost);
+  Bid<Material>* bid_default = Bid<Material>::Create(req, fac_.mat, s2_);  // Default Cost
   
   std::vector<Trade<Material>> trades;
   trades.push_back(Trade<Material>(req, bid_explicit, trade_amt));
-  trades.push_back(Trade<Material>(req, bid_nan, trade_amt));
+  trades.push_back(Trade<Material>(req, bid_default, trade_amt));
   
   TradeExecutor<Material> exec(trades);
   
-  // Test wrapper function with mixed preferences - should not throw (this also records trades automatically)
+  // Test wrapper function with mixed unit costs - should not throw (this also records trades automatically)
   EXPECT_NO_THROW(exec.ExecuteTrades(ctx_));
   recorder_.Flush();
   
-  // Verify preference preservation
-  EXPECT_DOUBLE_EQ(bid_explicit->preference(), explicit_pref);
-  EXPECT_TRUE(std::isnan(bid_nan->preference()));
+  // Verify unit cost preservation
+  EXPECT_DOUBLE_EQ(bid_explicit->unit_cost(), explicit_cost);
+  EXPECT_DOUBLE_EQ(bid_default->unit_cost(), cyclus::kDefaultUnitCost);
   
   // Query database
   cyclus::QueryResult qr = backend_->Query("Transactions", NULL);
@@ -340,7 +341,7 @@ TEST_F(TradeExecutorDatabaseTests, MixedPreferenceScenarios) {
             << qr.rows.size();
   
   // Cleanup
-  delete bid_nan;
+  delete bid_default;
   delete bid_explicit;
   delete req;
 }

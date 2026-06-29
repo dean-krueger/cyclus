@@ -64,8 +64,7 @@ template <class T> class TradeExecutor {
   /// responses to requesters
   void ExecuteTrades(Context* ctx) { ExecuteTrades(ctx, NULL); }
 
-  /// @brief execute all trades with access to exchange context for adjusted
-  /// preferences
+  /// @brief execute all trades with access to exchange context for adjusted vals
   void ExecuteTrades(Context* ctx, ExchangeContext<T>* ex_ctx) {
     GroupTradesBySupplier(trade_ctx_, trades_);
     GetTradeResponses(trade_ctx_);
@@ -81,12 +80,11 @@ template <class T> class TradeExecutor {
   /// occur
   void RecordTrades(Context* ctx) { RecordTrades(ctx, NULL); }
 
-  /// @brief Record all trades with the appropriate backends, using adjusted
-  /// preferences
+  /// @brief Record all trades with appropriate backends, using adjusted vals
   ///
   /// @param ctx the Context through which communication with backends will
   /// occur
-  /// @param ex_ctx the ExchangeContext containing the adjusted preferences used
+  /// @param ex_ctx the ExchangeContext containing the adjusted values used
   /// by the solver
   void RecordTrades(Context* ctx, ExchangeContext<T>* ex_ctx) {
     // record all trades
@@ -105,45 +103,26 @@ template <class T> class TradeExecutor {
         Trade<T>& trade = v_it->first;
         typename T::Ptr rsrc = v_it->second;
         if (rsrc->quantity() > cyclus::eps_rsrc()) {
-          // Get original MC and MU
-          double original_mc = trade.bid->preference();
-          if (std::isnan(original_mc)) {
-            original_mc = 0.0;  // NaN means no cost
-          }
-          double original_mu = trade.request->preference();
+          // Get adjusted unit_cost and unit_value
+          double adjusted_unit_cost = trade.bid->unit_cost();
+          double adjusted_unit_value = trade.request->pref_mod();
 
-          // Get adjusted MC and MU from exchange context
-          double adjusted_mc = original_mc;
-          double adjusted_mu = original_mu;
-          
+          // Normally the arc_cost is going to be this, however...
+          double adjusted_arc_cost = adjusted_unit_cost - adjusted_unit_value;
+      
+          // It's possible to change the arc_cost directly during Adjustment
           if (ex_ctx) {
-            auto trader_it = ex_ctx->trader_mc.find(trade.request->requester());
-            if (trader_it != ex_ctx->trader_mc.end()) {
-              auto request_it = trader_it->second.find(trade.request);
-              if (request_it != trader_it->second.end()) {
-                auto bid_it = request_it->second.find(trade.bid);
-                if (bid_it != request_it->second.end()) {
-                  adjusted_mc = bid_it->second;
-                }
-              }
-            }
-            
-            trader_it = ex_ctx->trader_mu.find(trade.request->requester());
-            if (trader_it != ex_ctx->trader_mu.end()) {
-              auto request_it = trader_it->second.find(trade.request);
-              if (request_it != trader_it->second.end()) {
-                auto bid_it = request_it->second.find(trade.bid);
-                if (bid_it != request_it->second.end()) {
-                  adjusted_mu = bid_it->second;
-                }
-              }
+            const double* arc_cost =
+                ex_ctx->GetArcCost(trade.request, trade.bid);
+            if (arc_cost != nullptr) {
+              adjusted_arc_cost = *arc_cost;
             }
           }
           
-          // Set the resource's unit value to the trade's marginal cost
-          rsrc->SetUnitValue(adjusted_mc);
+          // Set the resource's unit value to the successful trade's unit cost
+          rsrc->unit_value(adjusted_unit_cost);
           
-          // Record MC and MU. ArcWeight can be computed from these if needed.
+          // Record adjusted unit cost/value and the solver arc cost.
           ctx->NewDatum("Transactions")
               ->AddVal("TransactionId", ctx->NextTransactionID())
               ->AddVal("SenderId", supplier->id())
@@ -151,8 +130,9 @@ template <class T> class TradeExecutor {
               ->AddVal("ResourceId", rsrc->state_id())
               ->AddVal("Commodity", trade.request->commodity())
               ->AddVal("Time", ctx->time())
-              ->AddVal("MC", adjusted_mc)
-              ->AddVal("MU", adjusted_mu)
+              ->AddVal("UnitCost", adjusted_unit_cost)
+              ->AddVal("UnitValue", adjusted_unit_value)
+              ->AddVal("ArcCost", adjusted_arc_cost)
               ->Record();
         }
       }

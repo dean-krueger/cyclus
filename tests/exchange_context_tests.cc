@@ -22,9 +22,7 @@ using std::vector;
 using cyclus::Bid;
 using cyclus::BidPortfolio;
 using cyclus::ExchangeContext;
-using cyclus::MCMap;
-using cyclus::MUMap;
-using cyclus::PrefMap;
+using cyclus::RequestBidMap;
 using cyclus::Request;
 using cyclus::RequestPortfolio;
 using cyclus::Resource;
@@ -42,19 +40,19 @@ class ExchangeContextTests: public ::testing::Test {
   Request<Resource>* req2;
   RequestPortfolio<Resource>::Ptr rp1, rp2;
   string commod1, commod2;
-  double pref;
+  double unit_value;
 
   virtual void SetUp() {
     fac1 = new TestFacility(tc.get());
     fac2 = new TestFacility(tc.get());
 
-    pref = 0.5;
+    unit_value = 0.5;
     commod1 = "commod1";
 
     rp1 = RequestPortfolio<Resource>::Ptr(new RequestPortfolio<Resource>());
-    req1 = rp1->AddRequest(get_mat(), fac1, commod1, pref);
+    req1 = rp1->AddRequest(get_mat(), fac1, commod1, unit_value);
     rp2 = RequestPortfolio<Resource>::Ptr(new RequestPortfolio<Resource>());
-    req2 = rp2->AddRequest(get_mat(), fac2, commod1, pref);
+    req2 = rp2->AddRequest(get_mat(), fac2, commod1, unit_value);
   }
 
   virtual void TearDown() {
@@ -143,8 +141,8 @@ TEST_F(ExchangeContextTests, AddBid1) {
   EXPECT_TRUE(context.bids_by_request[req1].empty());
 
   BidPortfolio<Resource>::Ptr bp1(new BidPortfolio<Resource>());
-  double bid_pref = 2.5;  // MC value to test
-  Bid<Resource>* bid = bp1->AddBid(req1, get_mat(), fac1, false, bid_pref);
+  double unit_cost = 2.5;  // unit_cost value to test
+  Bid<Resource>* bid = bp1->AddBid(req1, get_mat(), fac1, false, unit_cost);
 
   context.AddBidPortfolio(bp1);
 
@@ -163,13 +161,10 @@ TEST_F(ExchangeContextTests, AddBid1) {
   bidders.insert(fac1);
   EXPECT_EQ(bidders, context.bidders);
 
-  MCMap<Resource>::type obs_mc;
-  obs_mc[req1].insert(std::make_pair(bid, bid_pref));
-  EXPECT_EQ(context.trader_prefs[req1->requester()], obs_mc);
-  
-  MUMap<Resource>::type obs_mu;
-  obs_mu[req1].insert(std::make_pair(bid, req1->preference()));
-  EXPECT_EQ(context.trader_mu[req1->requester()], obs_mu);
+  RequestBidMap<Resource>::type exp_cost;
+  exp_cost[req1].insert(std::make_pair(bid, unit_cost - unit_value));
+  EXPECT_EQ(context.trader_arc_costs[req1->requester()], exp_cost);
+
 }
 
 // - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
