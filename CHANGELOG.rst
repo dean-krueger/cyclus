@@ -153,6 +153,7 @@ v1.6.0
 * Fix how Env::GetInstallPath() finds the location of the cyclus installation (#1689)
 * Fix Debian package generation (#1676)
 * Fixed ResBuf.Decay() and added test (#1825)
+* Fixed questionable memory access ()
 
 
 
