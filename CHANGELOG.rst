@@ -6,7 +6,7 @@ Since last release
 ====================
 
 **Added:**
-
+* Added a copy constructor to Timer to allow MockSim to copy it without upsetting the progress bar (#1961)
 * Added progress bar to the simulation loop (#1912)
 * Added a warning for when a facility trades with itself (#1895)
 * Added a new datatype to the backend for tariff region (#1922)
