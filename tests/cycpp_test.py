@@ -1189,4 +1189,3 @@ def test_integration():
         cmd = 'cycpp.py {} -o {} --cpp-path `which g++`'.format(inf, outf.name)
     p = Popen(cmd, shell=True, stdin=PIPE, stdout=PIPE, stderr=STDOUT, close_fds=True)
     assert '' ==  p.stdout.read().decode()
-
