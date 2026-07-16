@@ -92,7 +92,7 @@ class GreedyPreconditioner {
   /// @brief a comparitor for ordering containers of Request::Ptrs in
   /// descending order based on their average commodity weight
   inline bool GroupComp(const RequestGroup::Ptr l, const RequestGroup::Ptr r) {
-    return group_weights_[l] > group_weights_[r];
+    return group_weights_[l] < group_weights_[r];
   }
 
  private:

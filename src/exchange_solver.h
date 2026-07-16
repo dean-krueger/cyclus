@@ -3,6 +3,8 @@
 
 #include <cstddef>
 
+#include "error.h"
+
 namespace cyclus {
 
 class Context;

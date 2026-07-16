@@ -149,12 +149,16 @@ class ExchangeNodeGroup {
     excl_node_groups_.push_back(nodes);
   }
 
-  /// @return true of any nodes have arcs associated with them
+  /// @return true if any nodes in this group have arcs associated with them
+  /// This is used by ProgTranslator to determine if a request group needs
+  /// variables/constraints in the LP formulation. We check unit_capacities
+  /// because they are only populated when arcs are created, making this a
+  /// reliable indicator of arc presence.
   bool HasArcs() {
     for (std::vector<ExchangeNode::Ptr>::iterator it = nodes_.begin();
          it != nodes_.end();
          ++it) {
-      if (it->get()->prefs.size() > 0) return true;
+      if (it->get()->unit_capacities.size() > 0) return true;
     }
     return false;
   }
@@ -259,6 +263,9 @@ class ExchangeGraph {
 
   inline const std::map<int, Arc>& arc_by_id() const { return arc_by_id_; }
   inline std::map<int, Arc>& arc_by_id() { return arc_by_id_; }
+
+  /// @brief returns all arcs on the graph connected to a specified node
+  std::vector<Arc>& GetArcsFromNode(ExchangeNode::Ptr node);
 
  private:
   std::vector<RequestGroup::Ptr> request_groups_;

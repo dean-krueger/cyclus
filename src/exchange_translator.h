@@ -1,6 +1,7 @@
 #ifndef CYCLUS_SRC_EXCHANGE_TRANSLATOR_H_
 #define CYCLUS_SRC_EXCHANGE_TRANSLATOR_H_
 
+#include <algorithm>
 #include <sstream>
 
 #include "bid.h"

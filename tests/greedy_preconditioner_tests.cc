@@ -74,12 +74,6 @@ TEST(ConditionerTests, Conditioning) {
   g.AddArc(n21e);
   g.AddArc(n22s);
 
-  n11->prefs[n11e] = n1epref;
-  n12->prefs[n12s] = n1spref;
-  n13->prefs[n13s] = n1spref;
-  n21->prefs[n21e] = n2epref;
-  n22->prefs[n22s] = n2epref;
-
   // initial state
   EXPECT_EQ(g.request_groups().at(0), g1);
   EXPECT_EQ(g.request_groups().at(0)->nodes().at(0), n11);
@@ -127,11 +121,11 @@ TEST(ConditionerTests, Conditioning) {
   gp.Condition(&g);
 
   // final state
-  EXPECT_EQ(g.request_groups().at(0), g2);
-  EXPECT_EQ(g.request_groups().at(0)->nodes().at(0), n22);
-  EXPECT_EQ(g.request_groups().at(0)->nodes().at(1), n21);
-  EXPECT_EQ(g.request_groups().at(1), g1);
-  EXPECT_EQ(g.request_groups().at(1)->nodes().at(0), n12);
-  EXPECT_EQ(g.request_groups().at(1)->nodes().at(1), n11);
-  EXPECT_EQ(g.request_groups().at(1)->nodes().at(2), n13);
+  EXPECT_EQ(g.request_groups().at(0), g1);
+  EXPECT_EQ(g.request_groups().at(0)->nodes().at(0), n11);
+  EXPECT_EQ(g.request_groups().at(0)->nodes().at(1), n13);
+  EXPECT_EQ(g.request_groups().at(0)->nodes().at(2), n12);
+  EXPECT_EQ(g.request_groups().at(1), g2);
+  EXPECT_EQ(g.request_groups().at(1)->nodes().at(0), n21);
+  EXPECT_EQ(g.request_groups().at(1)->nodes().at(1), n22);
 }

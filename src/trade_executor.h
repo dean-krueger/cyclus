@@ -129,8 +129,6 @@ template <class T> class TradeExecutor {
                 }
               }
             }
-            // If any of the keys are not found, adjusted_preference remains
-            // the original preference
           }
 
           ctx->NewDatum("Transactions")

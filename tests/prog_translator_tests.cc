@@ -57,12 +57,13 @@ TEST(ProgTranslatorTests, translation) {
   double excl_flow[] = {0, 2, 2, 0, 2, 0, 0};
 
   std::vector<double> obj_coeffs;
+  double excl_val = 2.0;  // excl_val for exclusive arcs (set by excl_flow[1])
   for (int i = 0; i != narcs; i++) {
     obj_coeffs.push_back((excl_flow[i] != 0) ?
                          excl_flow[i] / prefs[i] : 1 / prefs[i]);
   }
 
-
+  // Calculate max_cost for faux arcs
   double cost_add = 1;
   double max_obj_coeff = 1 / 0.2;  // 1 / prefs[0]
   double min_row_coeff = 0.3;  // ucaps_a_3
@@ -113,11 +114,6 @@ TEST(ProgTranslatorTests, translation) {
   d1->unit_capacities[x4] = std::vector<double>(
       ucaps_d_4, ucaps_d_4 + sizeof(ucaps_d_4) / sizeof(ucaps_d_4[0]) );
 
-  a0->prefs[x0] = prefs[0];
-  b0->prefs[x1] = prefs[1];
-  b1->prefs[x2] = prefs[2];
-  a1->prefs[x3] = prefs[3];
-  b1->prefs[x4] = prefs[4];
 
   RequestGroup::Ptr a(new RequestGroup());  // new RequestGroup(dem_a[0])?
   a->AddExchangeNode(a0);

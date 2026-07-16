@@ -87,7 +87,6 @@ TEST(ExXlateTests, NegPref) {
       rp->AddRequest(get_mat(u235, qty), trader, "", pref);
   BidPortfolio<Material>::Ptr bp(new BidPortfolio<Material>());
   Bid<Material>* bid = bp->AddBid(req, get_mat(u235, qty), trader);
-  ExchangeGraph::Ptr graph = ExchangeGraph::Ptr(new ExchangeGraph());
 
   ExchangeContext<Material> ctx;
   ctx.AddRequestPortfolio(rp);
@@ -114,7 +113,6 @@ TEST(ExXlateTests, ZeroPref) {
       rp->AddRequest(get_mat(u235, qty), trader, "", pref);
   BidPortfolio<Material>::Ptr bp(new BidPortfolio<Material>());
   Bid<Material>* bid = bp->AddBid(req, get_mat(u235, qty), trader);
-  ExchangeGraph::Ptr graph = ExchangeGraph::Ptr(new ExchangeGraph());
 
   ExchangeContext<Material> ctx;
   ctx.AddRequestPortfolio(rp);
