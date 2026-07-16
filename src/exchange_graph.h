@@ -37,13 +37,13 @@ struct ExchangeNode {
   /// @brief the parent ExchangeNodeGroup to which this ExchangeNode belongs
   ExchangeNodeGroup* group;
 
-  /// @brief unit values associated with this ExchangeNode corresponding to
+  /// @brief Values associated with this ExchangeNode corresponding to
   /// capacties of its parent ExchangeNodeGroup. This information corresponds to
   /// the resource object from which this ExchangeNode was translated.
   std::map<Arc, std::vector<double>> unit_capacities;
 
-  /// @brief preference values for arcs
-  std::map<Arc, double> prefs;
+  /// @brief arc cost values for arcs
+  std::map<Arc, double> arc_costs;
 
   /// @brief whether this node represents an exclusive request or offer
   bool exclusive;
@@ -81,9 +81,9 @@ class Arc {
     vnode_ = other.vnode();
     exclusive_ = other.exclusive();
     excl_val_ = other.excl_val();
-    mc_ = other.mc();
-    mu_ = other.mu();
-    pref_ = other.pref();
+    unit_cost_ = other.unit_cost();
+    unit_cost_mod_ = other.unit_cost_mod();
+    arc_cost_ = other.arc_cost();
     return *this;
   }
 
@@ -101,27 +101,27 @@ class Arc {
   inline bool exclusive() const { return exclusive_; }
   inline double excl_val() const { return excl_val_; }
   
-  /// @brief marginal cost (from bid node)
-  inline double mc() const { return mc_; }
-  inline void mc(double mc) { mc_ = mc; }
+  /// @brief unit cost (from bid node)
+  inline double unit_cost() const { return unit_cost_; }
+  inline void unit_cost(double unit_cost) { unit_cost_ = unit_cost; }
   
-  /// @brief marginal utility (from request node)
-  inline double mu() const { return mu_; }
-  inline void mu(double mu) { mu_ = mu; }
+  /// @brief unit cost modifier (from request node)
+  inline double unit_cost_mod() const { return unit_cost_mod_; }
+  inline void unit_cost_mod(double unit_cost_mod) { unit_cost_mod_ = unit_cost_mod; }
   
-  /// @brief returns the arc weight
-  inline double pref() const { return pref_; }
-  /// @brief sets the arc weight arbitrarily
-  inline void pref(double pref) { pref_ = pref; }
+  /// @brief returns the arc cost
+  inline double arc_cost() const { return arc_cost_; }
+  /// @brief sets the arc cost arbitrarily
+  inline void arc_cost(double arc_cost) { arc_cost_ = arc_cost; }
 
  private:
   boost::weak_ptr<ExchangeNode> unode_;
   boost::weak_ptr<ExchangeNode> vnode_;
   bool exclusive_;
   double excl_val_;
-  double mc_;  ///< marginal cost from bid
-  double mu_;  ///< marginal utility from request
-  double pref_;  ///< arc weight used in objective function
+  double unit_cost_;  
+  double unit_cost_mod_; 
+  double arc_cost_;
 };
 
 /// @brief ExchangeNode-ExchangeNode equality operator
