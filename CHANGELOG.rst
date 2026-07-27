@@ -35,7 +35,14 @@ Since last release
 * Allow multiple archetype blocks to facilitate includes (#1874)
 
 **Changed:**
-* Renamed DRE variables to remove reference to preference and clarify intent (#1937)
+* Reworked the Dynamic Resource Exchange to minimize direct arc costs rather
+  than inverted preferences. Bids now provide unit costs, requests provide unit
+  cost modifiers, and adjustment hooks operate on request/bid cost maps (#1937)
+* Renamed Dynamic Resource Exchange preference APIs and terminology to reflect
+  the cost-based model, including ``Adjust*Prefs`` → ``Adjust*Params`` and
+  ``PrefMap`` → ``RequestBidMap`` (#1937)
+* Updated material sell policies to construct bid costs from resource unit
+  values and configurable policy unit costs (#1937)
 * Made the Unit Tests far less verbose by suppressing log output during RunSim (#1927)
 * Reworked the facility/instituion/region_cost.cycpp.h files to work with MC (#1931)
 * Changed Dockerfile to use boost and boost-cpp instead of libboost-devel (#1906)
@@ -63,7 +70,9 @@ Since last release
 * Removed ``exclusive_orders_only`` from schema (#1816)
 
 **Fixed:**
-
+* Corrected optimization and greedy exchange-solver behavior for zero and
+  negative arc costs, including faux unmet-demand arc penalties and greedy
+  ordering (#1937)
 * Removed unnecessary records being added to the Resource database by packaging process (#1761)
 * Removed GTest source code from code coverage reports (#1759)
 * Extended new GTest handling to Institutions and Facilities as they were done in Regions (#1836)
