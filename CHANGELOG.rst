@@ -6,7 +6,6 @@ Since last release
 ====================
 
 **Added:**
-* Added marginal utility functionality to the toolkit (#1932)
 * Added a new datatype to the backend for tariff region (#1922)
 * Added Functions to access region and institution from facilities and institutions (#1914)
 * Added a unit value to Resource, Material, and Product objects (#1894)
@@ -36,13 +35,7 @@ Since last release
 
 **Changed:**
 * Reworked the Dynamic Resource Exchange to minimize direct arc costs rather
-  than inverted preferences. Bids now provide unit costs, requests provide unit
-  cost modifiers, and adjustment hooks operate on request/bid cost maps (#1937)
-* Renamed Dynamic Resource Exchange preference APIs and terminology to reflect
-  the cost-based model, including ``Adjust*Prefs`` → ``Adjust*Params`` and
-  ``PrefMap`` → ``RequestBidMap`` (#1937)
-* Updated material sell policies to construct bid costs from resource unit
-  values and configurable policy unit costs (#1937)
+  than inverted preferences. Renamed variables as needed/appropriate (#1937)
 * Made the Unit Tests far less verbose by suppressing log output during RunSim (#1927)
 * Reworked the facility/instituion/region_cost.cycpp.h files to work with MC (#1931)
 * Changed Dockerfile to use boost and boost-cpp instead of libboost-devel (#1906)
@@ -70,9 +63,6 @@ Since last release
 * Removed ``exclusive_orders_only`` from schema (#1816)
 
 **Fixed:**
-* Corrected optimization and greedy exchange-solver behavior for zero and
-  negative arc costs, including faux unmet-demand arc penalties and greedy
-  ordering (#1937)
 * Removed unnecessary records being added to the Resource database by packaging process (#1761)
 * Removed GTest source code from code coverage reports (#1759)
 * Extended new GTest handling to Institutions and Facilities as they were done in Regions (#1836)
